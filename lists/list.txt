@@ -307,8 +307,9 @@ moonswap.in
 dmm.exchange
 bitcoke.vip
 coinswap.com
-coinmarketcap.com
+coinmarketcap.com/alexandria
 decrypt.co
 ivanontech.com
 moralis.io
 shrimpy.io
+academy.binance.com
