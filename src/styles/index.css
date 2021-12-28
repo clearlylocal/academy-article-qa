@@ -96,5 +96,7 @@ main.container {
 
 .violation-context a[href].violation {
 	font-weight: bold;
-	color: var(--color-error);
+	background: var(--color-error);
+	color: var(--color-white);
+	white-space: pre-wrap;
 }
