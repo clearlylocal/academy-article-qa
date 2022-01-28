@@ -94,7 +94,7 @@ main.container {
 	color: var(--color-secondary-medium);
 }
 
-.violation-context a[href].violation {
+.violation-context .violation {
 	font-weight: bold;
 	background: var(--color-error);
 	color: var(--color-white);

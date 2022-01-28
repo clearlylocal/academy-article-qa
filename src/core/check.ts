@@ -34,9 +34,15 @@ export const check = (html: string, domainBlacklist: string[]): Violation[] => {
 		return Object.assign({ domain }, pattern)
 	})
 
-	for (const link of fragment.querySelectorAll<HTMLAnchorElement>(
-		'a[href]',
-	)) {
+	const links = fragment.querySelectorAll<HTMLAnchorElement>('a[href]')
+
+	const leafNodes = [...fragment.querySelectorAll<HTMLElement>('*')].filter(
+		(x) =>
+			x.childNodes.length === 1 &&
+			x.childNodes[0].nodeType === Node.TEXT_NODE,
+	)
+
+	for (const link of links) {
 		const { href: url, textContent: text } = link
 
 		const parent = link.parentElement ?? link
@@ -57,6 +63,35 @@ export const check = (html: string, domainBlacklist: string[]): Violation[] => {
 				pattern,
 				domain,
 			})
+		}
+	}
+
+	for (const leafNode of leafNodes) {
+		const text = leafNode.textContent!
+
+		const parent = leafNode.parentElement ?? leafNode
+
+		const domains = text.match(/[a-z0-9-]+(\.[a-z0-9]+)+/gi) ?? []
+
+		for (const domain of domains) {
+			const m = matchers.find((m) => m.match(`https://${domain}`))
+
+			if (m) {
+				const { pattern, domain } = m
+
+				const context = parent.innerHTML.replace(
+					new RegExp(domain.replace(/\./g, '\\.'), 'i'),
+					`<span class="violation">${domain}</span>`,
+				)
+
+				violations.push({
+					url: domain,
+					context,
+					text: text!,
+					pattern,
+					domain,
+				})
+			}
 		}
 	}
 
