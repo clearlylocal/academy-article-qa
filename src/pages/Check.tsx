@@ -1,8 +1,16 @@
-import { FC, useCallback, useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { check, Violation } from '../core/check'
+import {
+	FC,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+	ReactEventHandler,
+} from 'react'
+import { checkUrlDomains } from '../core/checkUrlDomains'
+import { checkKeywords } from '../core/checkKeywords'
 import { joinPath } from '../utils/path'
 import mammoth from 'mammoth'
+import { renderViolation } from '../components/renderViolation'
 
 export const readFile = (file: File) =>
 	new Promise<ArrayBuffer>((res) => {
@@ -13,25 +21,23 @@ export const readFile = (file: File) =>
 		reader.readAsArrayBuffer(file)
 	})
 
-type FormVals = {
-	files?: FileList
-}
-
-const init: FormVals = {}
+type HtmlResult = Awaited<ReturnType<typeof mammoth.convertToHtml>>
 
 export const Check: FC = () => {
-	const defaultValues: FormVals = useMemo(
-		() => JSON.parse(localStorage.getItem('checkerForm') ?? 'null') ?? init,
-		[],
-	)
+	const [_keywords, _setKeywords] = useState('')
 
-	const { register, handleSubmit } = useForm<FormVals>({
-		defaultValues,
-	})
+	const keywords = useMemo(
+		() =>
+			_keywords
+				.split('\n')
+				.map((x) => x.trim().split('\t')[0])
+				.filter((x) => x && x.toLowerCase() !== 'keyword'),
+		[_keywords],
+	)
 
 	const listId = 'list'
 
-	const [list, setList] = useState<string[]>([])
+	const [domainBlacklist, setDomainBlacklist] = useState<string[]>([])
 
 	useEffect(() => {
 		if (listId) {
@@ -45,28 +51,18 @@ export const Check: FC = () => {
 
 				const list = await res.text()
 
-				setList(list.split('\n').filter(Boolean))
+				setDomainBlacklist(list.split('\n').filter(Boolean))
 			})
 		}
 	}, [listId])
 
-	const [violations, setViolations] = useState<Violation[] | null>(null)
 	const [loading, setLoading] = useState(false)
 
-	const changeHandler = useCallback((form: FormVals) => {
-		localStorage.setItem(
-			'checkerForm',
-			JSON.stringify(form, (k, v) =>
-				(k as keyof FormVals) === 'files' ? undefined : v,
-			),
-		)
-	}, [])
+	const [htmlResult, setHtmlResult] = useState<null | HtmlResult>(null)
 
-	const submitHandler = useCallback(
-		async (form: FormVals) => {
-			const { files } = form
-
-			setViolations(null)
+	const fileChangeHandler: ReactEventHandler<HTMLInputElement> = useCallback(
+		async (e) => {
+			const { files } = e.currentTarget
 
 			if (!files?.length) {
 				return
@@ -79,65 +75,73 @@ export const Check: FC = () => {
 
 			const result = await mammoth.convertToHtml({ arrayBuffer })
 
-			setViolations(check(result.value, list))
+			setHtmlResult(result)
 
 			setLoading(false)
 		},
-		[list],
+		[],
 	)
 
-	return !list.length ? (
+	const keywordViolations = useMemo(
+		() =>
+			htmlResult?.value ? checkKeywords(htmlResult.value, keywords) : [],
+		[htmlResult, keywords],
+	)
+
+	const domainViolations = useMemo(
+		() =>
+			htmlResult?.value
+				? checkUrlDomains(htmlResult.value, domainBlacklist)
+				: [],
+		[htmlResult, domainBlacklist],
+	)
+
+	const violations = useMemo(
+		() => [...domainViolations, ...keywordViolations],
+		[keywordViolations, domainViolations],
+	)
+
+	return !domainBlacklist.length ? (
 		<>
 			<div className='spaced'>Loading...</div>
 		</>
 	) : (
-		<form
-			onSubmit={handleSubmit(submitHandler)}
-			onChange={handleSubmit(changeHandler)}
-		>
+		<form>
 			<h1>Check</h1>
 			<div className='spaced'>
 				<label>
 					Upload file (DOCX)
-					<input
-						onChange={handleSubmit(submitHandler)}
-						type='file'
-						name='files'
-						ref={register}
+					<input onChange={fileChangeHandler} type='file' />
+				</label>
+			</div>
+			<div className='spaced'>
+				<label>
+					Keywords
+					<textarea
+						placeholder='Paste target keywords here (one per line)'
+						onChange={(e) => _setKeywords(e.currentTarget.value)}
 					/>
 				</label>
 			</div>
-			{/* <div className='spaced'>
-				<button type='submit'>Check</button>
-			</div> */}
 
 			<hr />
 
 			<output>
-				{violations?.length ? (
-					<ul>
-						{violations.map((x, i) => (
-							<li key={i}>
-								<p>
-									Matched blacklisted domain
-									<code>{x.domain}</code>. Context:
-								</p>
-								<blockquote
-									className='violation-context'
-									dangerouslySetInnerHTML={{
-										__html: x.context,
-									}}
-								/>
-							</li>
-						))}
-					</ul>
-				) : Array.isArray(violations) ? (
-					<>No blacklisted domains found 😄</>
-				) : loading ? (
-					<>Checking...</>
-				) : (
-					<>No file selected.</>
-				)}
+				<div>
+					{loading ? (
+						<>Checking...</>
+					) : !htmlResult ? (
+						<>No file selected.</>
+					) : !violations.length ? (
+						<>No issues found 🎉</>
+					) : (
+						<ul>
+							{violations.map((x, i) => (
+								<li key={i}>{renderViolation(x)}</li>
+							))}
+						</ul>
+					)}
+				</div>
 			</output>
 		</form>
 	)

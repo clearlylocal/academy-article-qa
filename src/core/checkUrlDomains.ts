@@ -1,15 +1,11 @@
 import { matchPattern } from 'browser-extension-url-match'
+import { Violation } from '../types/Violation'
 import { htmlToFragment } from '../utils/dom'
 
-export type Violation = {
-	url: string
-	text: string
-	domain: string
-	pattern: string
-	context: string
-}
-
-export const check = (html: string, domainBlacklist: string[]): Violation[] => {
+export const checkUrlDomains = (
+	html: string,
+	domainBlacklist: string[],
+): Violation[] => {
 	const violations: Violation[] = []
 	const fragment = htmlToFragment(html)
 
@@ -57,6 +53,7 @@ export const check = (html: string, domainBlacklist: string[]): Violation[] => {
 			const { pattern, domain } = m
 
 			violations.push({
+				kind: 'Domain',
 				url,
 				context: parent.innerHTML,
 				text: text!,
@@ -85,6 +82,7 @@ export const check = (html: string, domainBlacklist: string[]): Violation[] => {
 				)
 
 				violations.push({
+					kind: 'Domain',
 					url: domain,
 					context,
 					text: text!,

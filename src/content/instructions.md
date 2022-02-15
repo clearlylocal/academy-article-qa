@@ -1,5 +1,5 @@
 # Instructions
 
-This tool is for checking links in an MS Word (DOCX) document against a predifined blacklist of domains.
+This tool is for checking academy articles for issues such as blacklisted domains or missing keywords.
 
-Simply upload your DOCX file and review any detected violations.
+Simply upload your DOCX file, paste the keywords, and review any detected violations.

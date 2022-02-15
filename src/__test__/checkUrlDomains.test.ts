@@ -1,4 +1,4 @@
-import { check as _check } from '../core/check'
+import { checkUrlDomains as _checkUrlDomains } from '../core/checkUrlDomains'
 
 const list = `
 coinmarketcap.com/alexandria
@@ -24,7 +24,7 @@ const bodyLink = (href: string) => `<!DOCTYPE html>
 	</body>
 </html>`
 
-const testCheck = (href: string) => _check(bodyLink(href), list)
+const testCheck = (href: string) => _checkUrlDomains(bodyLink(href), list)
 
 describe('check', () => {
 	describe('control cases', () => {
