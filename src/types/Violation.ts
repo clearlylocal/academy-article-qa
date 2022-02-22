@@ -14,8 +14,8 @@ type NoKeywordsSpecifiedViolation = {
 type TooFewKeywordsFoundViolation = {
 	kind: 'TooFewKeywordsFound'
 	minKeywordsNeeded: number
-	found: string[]
-	notFound: string[]
+	keywordCounts: { keyword: string; count: number }[]
+	minCountPerKeyword: number
 }
 
 export type Violation =

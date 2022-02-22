@@ -1,9 +1,11 @@
 import { regex } from 'fancy-regex'
 import { Violation } from '../types/Violation'
 import { htmlToFragment } from '../utils/dom'
-import { forgivingPunctuation, nonWord } from '../utils/formatters'
+import { normalize } from '../utils/formatters'
 
 const cache = new Map<string, HTMLElement[]>()
+
+const MIN_COUNT_PER_KEYWORD = 1
 
 export const checkKeywords = (
 	html: string,
@@ -16,24 +18,23 @@ export const checkKeywords = (
 			},
 		]
 	} else {
+		// matcher operates on normalized strings with
+		// all punctuation and stop-words replaced with single space ('\x20')
 		const keywordMatchers = [...keywords]
 			.sort((a, b) => b.length - a.length)
 			.map((keyword) => ({
 				keyword,
+				count: 0,
 				matcher: regex('iu')`
-					(?<=^|${nonWord})
-					${forgivingPunctuation(keyword)}
-					(?=$|${nonWord})
+					(?<=^|\x20)
+					${normalize(keyword)}
+					(?=$|\x20)
 				`,
 			}))
 			.filter(
-				(x, i, a) =>
-					a.findIndex((y) =>
-						regex('iu')`^${x.matcher}$`.test(y.keyword),
-					) === i,
+				(x, i, a) => a.findIndex((y) => x.keyword === y.keyword) === i,
 			)
 
-		const found: string[] = []
 		const minKeywordsNeeded = Math.ceil(keywordMatchers.length / 2)
 
 		const leafNodes = cache.has(html)
@@ -55,27 +56,24 @@ export const checkKeywords = (
 			  })()
 
 		for (const leafNode of leafNodes) {
-			const text = leafNode.textContent!
+			// normalize all punctuation and stop-words to single space ('\x20')
+			const text = normalize(leafNode.textContent!)
 
-			for (const [i, keywordMatcher] of keywordMatchers.entries()) {
+			for (const keywordMatcher of keywordMatchers) {
 				if (keywordMatcher.matcher.test(text)) {
-					found.push(keywordMatcher.keyword)
-					keywordMatchers.splice(i, 1)
-
-					break
+					keywordMatcher.count++
 				}
 			}
 		}
 
-		return found.length < minKeywordsNeeded
+		return keywordMatchers.filter((x) => x.count >= MIN_COUNT_PER_KEYWORD)
+			.length < minKeywordsNeeded
 			? [
 					{
 						kind: 'TooFewKeywordsFound',
 						minKeywordsNeeded,
-						found,
-						notFound: keywordMatchers
-							.map((x) => x.keyword)
-							.reverse(),
+						keywordCounts: keywordMatchers,
+						minCountPerKeyword: MIN_COUNT_PER_KEYWORD,
 					},
 			  ]
 			: []

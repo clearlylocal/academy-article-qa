@@ -1,4 +1,5 @@
 import { Violation } from '../types/Violation'
+import { classify } from '../utils/classify'
 
 export const renderViolation = (violation: Violation): JSX.Element => {
 	switch (violation.kind) {
@@ -20,18 +21,22 @@ export const renderViolation = (violation: Violation): JSX.Element => {
 		case 'NoKeywordsSpecified':
 			return <p>No keywords specified. Please specify target keywords.</p>
 		case 'TooFewKeywordsFound':
+			const [notFound, found] = classify(
+				violation.keywordCounts,
+				(x) => x.count >= violation.minCountPerKeyword,
+			).map((xs) => xs.map((x) => x.keyword))
+
 			return (
 				<>
 					<p>
-						Only {violation.found.length} of{' '}
-						{violation.found.length + violation.notFound.length}{' '}
+						Only {found.length} of {found.length + notFound.length}{' '}
 						keywords found (
 						<strong>{violation.minKeywordsNeeded} needed</strong>)
 					</p>
 					<div>
 						<strong>Found:</strong>
 						<ul>
-							{violation.found.map((keyword, idx) => (
+							{found.map((keyword, idx) => (
 								<li key={idx}>{keyword}</li>
 							))}
 						</ul>
@@ -39,7 +44,7 @@ export const renderViolation = (violation: Violation): JSX.Element => {
 					<div>
 						<strong>Not found:</strong>
 						<ul>
-							{violation.notFound.map((keyword, idx) => (
+							{notFound.map((keyword, idx) => (
 								<li key={idx}>{keyword}</li>
 							))}
 						</ul>
